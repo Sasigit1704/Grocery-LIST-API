@@ -1,0 +1,44 @@
+{
+    "items": [
+        {
+            "id": 1,
+            "name": "Rice",
+            "quantity": 2
+        },
+        {
+            "id": 2,
+            "name": "Milk",
+            "quantity": 1
+        },
+        {
+            "id": 3,
+            "name": "Eggs",
+            "quantity": 12
+        },
+        {
+            "id": 4,
+            "name": "Sugar",
+            "quantity": 3
+        },
+        {
+            "id": 5,
+            "name": "Cooking Oil",
+            "quantity": 1
+        },
+        {
+            "id": 6,
+            "name": "Salt",
+            "quantity": 1
+        },
+        {
+            "id": 7,
+            "name": "Bread",
+            "quantity": 2
+        },
+        {
+            "id": 8,
+            "name": "Tooth Paste",
+            "quantity": 3
+        }
+    ]
+}
