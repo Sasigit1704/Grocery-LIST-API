@@ -16,6 +16,15 @@ def write_data(data):
 # DELETE entire list
 @router.delete("/")
 def delete_list():
+    """
+    Deletes all items from the grocery list.
+
+    Returns:
+        dict: Confirmation message after clearing the list.
+
+    Raises:
+        HTTPException: If the grocery list is already empty.
+    """
     data = read_data()
     if not data["items"]:
         raise HTTPException(status_code=404, detail="List is already empty")
@@ -26,6 +35,12 @@ def delete_list():
 # GET total quantity
 @router.get("/quantity")
 def get_total_quantity():
+    """
+    Calculates the total quantity of all grocery items.
+
+    Returns:
+        dict: Total quantity of all items in the list.
+    """
     data = read_data()
     items = data["items"]
     total_quantity = sum(item["quantity"] for item in items)
