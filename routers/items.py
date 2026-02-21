@@ -39,7 +39,7 @@ def create_item(item: Item):
         dict: The newly created grocery item.
 
     Raises:
-        HTTPException: If the item with same Id already exists.
+        HTTPException: If the item with same Id or Name already exists.
     """
     data = read_data()
     items = data["items"]
