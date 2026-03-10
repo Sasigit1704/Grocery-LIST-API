@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Path
 from schemas import Item, ItemUpdate, ItemPatch
 import json
 
@@ -60,7 +60,7 @@ def create_item(item: Item):
 
 # PUT full update
 @router.put("/{item_id}")
-def update_item(item_id: int, item: ItemUpdate):
+def update_item(item: ItemUpdate, item_id: int = Path(..., ge=1, le=9999)):
     """
     Fully updates an existing grocery item.
 
@@ -77,7 +77,14 @@ def update_item(item_id: int, item: ItemUpdate):
     data = read_data()
     items = data["items"]
     for i in range(len(items)):
+        if items[i]["id"] == item.id and items[i]["id"] != item_id:
+            raise HTTPException(
+                status_code=400,
+                detail="Another item with this ID already exists"
+            )
+    for i in range(len(items)):
         if items[i]["id"] == item_id:
+            items[i]["id"] = item.id
             items[i]["name"] = item.name
             items[i]["quantity"] = item.quantity
             write_data(data)
