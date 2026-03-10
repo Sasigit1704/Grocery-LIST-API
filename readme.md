@@ -1,31 +1,64 @@
 # Grocery List API
 
-## Description
-This is a FastAPI-based Grocery List Editor.
-It supports adding, updating, deleting items and managing the whole list.
-Data is stored in a JSON file.
+## Overview
+
+This project is a FastAPI-based Grocery List API. Initially, the project stored data using a JSON file. In the MongoDB integration task, the API was extended to store and manage data using MongoDB.
+
+## Technologies Used
+
+* FastAPI
+* Python
+* MongoDB
+* PyMongo
+* MongoDB Compass
 
 ## Features
-- Add item
-- Update item (PUT)
-- Partial update (PATCH)
-- Delete single item
-- Delete entire list
-- Get total quantity
-- JSON file storage
-- Proper error handling
 
-## Tech Stack
-- FastAPI
-- Pydantic
-- Uvicorn
-- JSON storage
+* Create grocery lists
+* Add items to lists
+* Update items
+* Delete items
+* Delete entire lists
+* Input validation using Pydantic
+* CORS support
+* MongoDB database integration
 
-## How to Run
+## Database Design
 
-pip install -r requirements.txt
+Two MongoDB collections are used:
 
-uvicorn main:app --reload
+### grocery_lists
 
-Open:
-http://127.0.0.1:8000/docs
+Stores the complete grocery lists including items.
+
+Example:
+{
+"listId": 1,
+"listName": "Fruits",
+"items": [
+{"id": 1, "name": "Apple", "quantity": 5}
+]
+}
+
+### lists_metadata
+
+Stores only list identifiers and names to track existing lists.
+
+Example:
+{
+"listId": 1,
+"listName": "Fruits"
+}
+
+## Running the Project
+
+1. Install dependencies
+   pip install -r requirements.txt
+
+2. Start MongoDB
+
+3. Run FastAPI server
+   uvicorn main:app --reload
+
+4. Open Swagger UI
+   http://127.0.0.1:8000/docs
