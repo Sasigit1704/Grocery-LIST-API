@@ -1,47 +1,97 @@
 from fastapi import APIRouter, HTTPException
-import json
+from schemas import GroceryList
+from database import grocery_collection, metadata_collection
 
 router = APIRouter(prefix="/list", tags=["List"])
 
-FILE_PATH = "grocery.json"
 
-def read_data():
-    with open(FILE_PATH, "r") as file:
-        return json.load(file)
+@router.post("/")
+def create_list(glist: GroceryList):
 
-def write_data(data):
-    with open(FILE_PATH, "w") as file:
-        json.dump(data, file, indent=4)
+    existing = metadata_collection.find_one({"listId": glist.listId})
 
-# DELETE entire list
-@router.delete("/")
-def delete_list():
-    """
-    Deletes all items from the grocery list.
+    if existing:
+        raise HTTPException(status_code=400, detail="List already exists")
 
-    Returns:
-        dict: Confirmation message after clearing the list.
+    grocery_collection.insert_one({
+        "listId": glist.listId,
+        "listName": glist.listName,
+        "items": []
+    })
 
-    Raises:
-        HTTPException: If the grocery list is already empty.
-    """
-    data = read_data()
-    if not data["items"]:
-        raise HTTPException(status_code=404, detail="List is already empty")
-    data["items"] = []
-    write_data(data)
-    return {"message": "Entire list deleted successfully"}
+    metadata_collection.insert_one({
+        "listId": glist.listId,
+        "listName": glist.listName
+    })
 
-# GET total quantity
-@router.get("/quantity")
-def get_total_quantity():
-    """
-    Calculates the total quantity of all grocery items.
+    return {"message": "List created successfully"}
 
-    Returns:
-        dict: Total quantity of all items in the list.
-    """
-    data = read_data()
-    items = data["items"]
-    total_quantity = sum(item["quantity"] for item in items)
-    return {"total_quantity": total_quantity}
+
+@router.get("/")
+def get_all_lists():
+
+    lists = list(metadata_collection.find({}, {"_id": 0}))
+
+    return lists
+
+
+@router.get("/{list_id}")
+def get_list(list_id: int):
+
+    lst = grocery_collection.find_one({"listId": list_id}, {"_id": 0})
+
+    if not lst:
+        raise HTTPException(status_code=404, detail="List not found")
+
+    return lst
+
+
+@router.delete("/{list_id}")
+def delete_list(list_id: int):
+
+    grocery_collection.delete_one({"listId": list_id})
+    metadata_collection.delete_one({"listId": list_id})
+
+    return {"message": "List deleted successfully"}
+
+@router.get("/filter/{name}")
+def filter_lists(name: str):
+
+    lists = list(
+        metadata_collection.find(
+            {"listName": name},
+            {"_id": 0}
+        )
+    )
+
+    if not lists:
+        raise HTTPException(status_code=404, detail="No lists found")
+
+    return lists
+
+@router.get("/sort")
+def sort_lists():
+
+    lists = list(
+        metadata_collection.find({}, {"_id": 0})
+        .sort("listName", 1)
+    )
+
+    return lists
+
+@router.get("/group")
+def group_items():
+
+    pipeline = [
+        {"$unwind": "$items"},
+        {
+            "$group": {
+                "_id": "$items.name",
+                "total_quantity": {"$sum": "$items.quantity"}
+            }
+        }
+    ]
+
+    result = list(grocery_collection.aggregate(pipeline))
+
+    return result

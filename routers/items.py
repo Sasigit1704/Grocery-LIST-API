@@ -1,145 +1,50 @@
-from fastapi import APIRouter, HTTPException, Path
-from schemas import Item, ItemUpdate, ItemPatch
-import json
+from fastapi import APIRouter, HTTPException
+from schemas import Item
+from database import grocery_collection
 
 router = APIRouter(prefix="/items", tags=["Items"])
 
-FILE_PATH = "grocery.json"
 
-def read_data():
-    with open(FILE_PATH, "r") as file:
-        return json.load(file)
+@router.get("/{list_id}")
+def get_items(list_id: int):
 
-def write_data(data):
-    with open(FILE_PATH, "w") as file:
-        json.dump(data, file, indent=4)
+    lst = grocery_collection.find_one({"listId": list_id}, {"_id": 0})
 
-# GET all items
-@router.get("/")
-def get_items():
-    """
-    Retrieves all grocery items.
+    if not lst:
+        raise HTTPException(status_code=404, detail="List not found")
 
-    Returns:
-        list[dict]: List of all grocery items stored in the system.
-    """
-    data = read_data()
-    return data["items"]
+    return lst["items"]
 
-# POST add new item
-@router.post("/")
-def create_item(item: Item):
-    """
-    Creates a new grocery item.
 
-    Args:
-        item (Item): Item details with id, name, and quantity.
+@router.post("/{list_id}")
+def add_item(list_id: int, item: Item):
 
-    Returns:
-        dict: The newly created grocery item.
+    lst = grocery_collection.find_one({"listId": list_id})
 
-    Raises:
-        HTTPException: If the item with same Id or Name already exists.
-    """
-    data = read_data()
-    items = data["items"]
-    # check duplicate id
-    for i in range(len(items)):
-        if items[i]["id"] == item.id:
+    if not lst:
+        raise HTTPException(status_code=404, detail="List not found")
+
+    for i in lst["items"]:
+        if i["id"] == item.id:
             raise HTTPException(status_code=400, detail="Item ID already exists")
-        if items[i]["name"] == item.name:
-            raise HTTPException(status_code=400, detail="Item name already exists")
-    new_item = {
-        "id": item.id,
-        "name": item.name,
-        "quantity": item.quantity
-    }
-    items.append(new_item)
-    write_data(data)
-    return new_item
 
-# PUT full update
-@router.put("/{item_id}")
-def update_item(item: ItemUpdate, item_id: int = Path(..., ge=1, le=9999)):
-    """
-    Fully updates an existing grocery item.
+    grocery_collection.update_one(
+        {"listId": list_id},
+        {"$push": {"items": item.dict()}}
+    )
 
-    Args:
-        item_id (int): ID of the item to update.
-        item (ItemUpdate): Updated item data including name and quantity.
+    return {"message": "Item added successfully"}
 
-    Returns:
-        dict: The updated grocery item.
 
-    Raises:
-        HTTPException: If the item is not found.
-    """
-    data = read_data()
-    items = data["items"]
-    for i in range(len(items)):
-        if items[i]["id"] == item.id and items[i]["id"] != item_id:
-            raise HTTPException(
-                status_code=400,
-                detail="Another item with this ID already exists"
-            )
-    for i in range(len(items)):
-        if items[i]["id"] == item_id:
-            items[i]["id"] = item.id
-            items[i]["name"] = item.name
-            items[i]["quantity"] = item.quantity
-            write_data(data)
-            return items[i]
-    raise HTTPException(status_code=404, detail="Item not found")
+@router.delete("/{list_id}/{item_id}")
+def delete_item(list_id: int, item_id: int):
 
-# PATCH partial update
-@router.patch("/{item_id}")
-def patch_item(item_id: int, item: ItemPatch):
-    """
-    Partially updates fields of an existing grocery item.
+    result = grocery_collection.update_one(
+        {"listId": list_id},
+        {"$pull": {"items": {"id": item_id}}}
+    )
 
-    Args:
-        item_id (int): ID of the item to update.
-        item (ItemPatch): Fields to update (name and/or quantity).
+    if result.modified_count == 0:
+        raise HTTPException(status_code=404, detail="Item not found")
 
-    Returns:
-        dict: The updated grocery item.
-
-    Raises:
-        HTTPException: If the item is not found.
-    """
-    data = read_data()
-    items = data["items"]
-    for i in range(len(items)):
-        if items[i]["id"] == item_id:
-            if item.name is not None:
-                items[i]["name"] = item.name
-            if item.quantity is not None:
-                items[i]["quantity"] = item.quantity
-            write_data(data)
-            return items[i]
-    raise HTTPException(status_code=404, detail="Item not found")
-
-# DELETE item
-@router.delete("/{item_id}")
-def delete_item(item_id: int):
-    """
-    Deletes a grocery item by its ID.
-
-    Args:
-        item_id (int): ID of the item to delete.
-
-    Returns:
-        dict: The deleted grocery item details.
-
-    Raises:
-        HTTPException: If the item is not found.
-    """
-    data = read_data()
-    items = data["items"]
-    for i in range(len(items)):
-        if items[i]["id"] == item_id:
-            deleted_item = items[i]
-            del items[i]
-            write_data(data)
-            return deleted_item
-    raise HTTPException(status_code=404, detail="Item not found")
+    return {"message": "Item deleted"}
