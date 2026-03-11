@@ -46,40 +46,6 @@ def get_all_lists():
     return lists
 
 
-@router.get("/{list_id}")
-def get_list(list_id: int):
-    """
-    Retrieve a specific grocery list along with its items.
-    Args:
-        list_id (int): ID of the grocery list.
-    Returns:
-        dict: Grocery list details including items.
-    Raises:
-        HTTPException: If the list is not found.
-    """
-    lst = grocery_collection.find_one({"listId": list_id}, {"_id": 0})
-
-    if not lst:
-        raise HTTPException(status_code=404, detail="List not found")
-
-    return lst
-
-
-@router.delete("/{list_id}")
-def delete_list(list_id: int):
-    """
-    Delete a grocery list completely.
-    Args:
-        list_id (int): ID of the grocery list to delete.
-    Returns:
-        dict: Confirmation message after deletion.
-    """
-    grocery_collection.delete_one({"listId": list_id})
-    metadata_collection.delete_one({"listId": list_id})
-
-    return {"message": "List deleted successfully"}
-
-
 @router.get("/filter/{name}")
 def filter_lists(name: str):
     """
@@ -139,3 +105,37 @@ def group_items():
     result = list(grocery_collection.aggregate(pipeline))
 
     return result
+
+
+@router.get("/{list_id}")
+def get_list(list_id: int):
+    """
+    Retrieve a specific grocery list along with its items.
+    Args:
+        list_id (int): ID of the grocery list.
+    Returns:
+        dict: Grocery list details including items.
+    Raises:
+        HTTPException: If the list is not found.
+    """
+    lst = grocery_collection.find_one({"listId": list_id}, {"_id": 0})
+
+    if not lst:
+        raise HTTPException(status_code=404, detail="List not found")
+
+    return lst
+
+
+@router.delete("/{list_id}")
+def delete_list(list_id: int):
+    """
+    Delete a grocery list completely.
+    Args:
+        list_id (int): ID of the grocery list to delete.
+    Returns:
+        dict: Confirmation message after deletion.
+    """
+    grocery_collection.delete_one({"listId": list_id})
+    metadata_collection.delete_one({"listId": list_id})
+
+    return {"message": "List deleted successfully"}
