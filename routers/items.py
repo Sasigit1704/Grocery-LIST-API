@@ -1,78 +1,77 @@
-from fastapi import APIRouter, HTTPException
-from schemas import Item
-from database import grocery_collection
+from fastapi import APIRouter, HTTPException, Depends
+from schemas import Item, ItemPatch
+from services.database import get_db
+from services.item_service import ItemService
 
 router = APIRouter(prefix="/items", tags=["Items"])
 
 
-@router.get("/{list_id}")
-def get_items(list_id: int):
-    """
-    Retrieve all items from a specific grocery list.
-    Args:
-        list_id (int): ID of the grocery list.
-    Returns:
-        list: A list of items in the specified grocery list.
-    Raises:
-        HTTPException: If the grocery list is not found.
-    """
-    lst = grocery_collection.find_one({"listId": list_id}, {"_id": 0})
+def get_service(db=Depends(get_db)):
+    return ItemService(db)
 
-    if not lst:
+
+@router.get("/{list_id}")
+def get_items(list_id: str, service=Depends(get_service)):
+
+    items = service.get_items(list_id)
+
+    if items is None:
         raise HTTPException(status_code=404, detail="List not found")
 
-    return lst["items"]
+    return items
 
 
 @router.post("/{list_id}")
-def add_item(list_id: int, item: Item):
-    """
-    Add a new item to a specific grocery list.
-    Args:
-        list_id (int): ID of the list where the item will be added.
-        item (Item): Item details including id, name and quantity.
-    Returns:
-        dict: Confirmation message after adding the item.
-    Raises:
-        HTTPException: If the list does not exist or item ID already exists.
-    """
+def add_item(list_id: str, item: Item, service=Depends(get_service)):
 
-    lst = grocery_collection.find_one({"listId": list_id})
+    result = service.add_item(list_id, item)
 
-    if not lst:
+    if result == "INVALID_ID":
+        raise HTTPException(status_code=400, detail="Invalid ID")
+
+    if result == "LIST_NOT_FOUND":
         raise HTTPException(status_code=404, detail="List not found")
 
-    for i in lst["items"]:
-        if i["id"] == item.id:
-            raise HTTPException(status_code=400, detail="Item ID already exists")
+    if result == "DUPLICATE":
+        raise HTTPException(status_code=400, detail="Duplicate item")
 
-    grocery_collection.update_one(
-        {"listId": list_id},
-        {"$push": {"items": item.dict()}}
-    )
+    return {"message": "Item added"}
 
-    return {"message": "Item added successfully"}
+
+@router.put("/{list_id}")
+def update_item(list_id: str, item: Item, service=Depends(get_service)):
+
+    updated = service.update_item(list_id, item)
+
+    if updated == 0:
+        raise HTTPException(status_code=404, detail="Item not found")
+
+    return {"message": "Updated"}
+
+
+@router.patch("/{list_id}/{item_id}")
+def patch_item(list_id: str, item_id: int, data: ItemPatch, service=Depends(get_service)):
+
+    result = service.patch_item(list_id, item_id, data)
+
+    if result == "INVALID_ID":
+        raise HTTPException(status_code=400, detail="Invalid ID")
+
+    if result == "NO_DATA":
+        raise HTTPException(status_code=400, detail="No data")
+
+    if result == 0:
+        raise HTTPException(status_code=404, detail="Item not found")
+
+    return {"message": "Patched"}
 
 
 @router.delete("/{list_id}/{item_id}")
-def delete_item(list_id: int, item_id: int):
-    """
-    Delete an item from a grocery list.
-    Args:
-        list_id (int): ID of the grocery list.
-        item_id (int): ID of the item to delete.
-    Returns:
-        dict: Confirmation message after deletion.
-    Raises:
-        HTTPException: If the item is not found.
-    """
+def delete_item(list_id: str, item_id: int, service=Depends(get_service)):
 
-    result = grocery_collection.update_one(
-        {"listId": list_id},
-        {"$pull": {"items": {"id": item_id}}}
-    )
+    deleted = service.delete_item(list_id, item_id)
 
-    if result.modified_count == 0:
+    if deleted == 0:
         raise HTTPException(status_code=404, detail="Item not found")
 
-    return {"message": "Item deleted"}
+    return {"message": "Deleted"}

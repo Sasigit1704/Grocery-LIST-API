@@ -2,24 +2,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from routers import items, lists
 
-app = FastAPI(
-    title="Grocery List API",
-    description="""
-This API manages grocery lists and items.
+app = FastAPI(title="Grocery API", version="3.0")
 
-Features:
-- Create grocery items
-- Update items
-- Delete items
-- View grocery list
-- Calculate total quantity
-
-Built using FastAPI with proper validation and REST principles.
-""",
-    version="1.0.0"
-)
-
-# Allow CORS for all origins
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],

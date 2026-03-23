@@ -1,124 +1,47 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends, Query
+from typing import Optional
 from schemas import GroceryList
-from database import grocery_collection, metadata_collection
+from services.database import get_db
+from services.list_service import ListService
 
 router = APIRouter(prefix="/list", tags=["List"])
 
-@router.post("/")
-def create_list(glist: GroceryList):
-    """
-    Create a new grocery list.
-    Args:
-        glist (GroceryList): List information containing listId and listName.
-    Returns:
-        dict: Confirmation message after successful creation.
-    Raises:
-        HTTPException: If the list already exists.
-    """
-    existing = metadata_collection.find_one({"listId": glist.listId})
 
-    if existing:
+def get_service(db=Depends(get_db)):
+    return ListService(db)
+
+
+@router.post("/")
+def create_list(glist: GroceryList, service=Depends(get_service)):
+
+    result = service.create_list(glist)
+
+    if not result:
         raise HTTPException(status_code=400, detail="List already exists")
 
-    grocery_collection.insert_one({
-        "listId": glist.listId,
-        "listName": glist.listName,
-        "items": []
-    })
-
-    metadata_collection.insert_one({
-        "listId": glist.listId,
-        "listName": glist.listName
-    })
-
-    return {"message": "List created successfully"}
+    return {"message": "Created", "list_id": result}
 
 
 @router.get("/")
-def get_all_lists():
-    """
-    Retrieve all existing grocery lists.
-    Returns:
-        list: A list containing listId and listName of all grocery lists.
-    """
-    lists = list(metadata_collection.find({}, {"_id": 0}))
+def get_lists(
+    name: Optional[str] = None,
+    sort_order: Optional[str] = Query("asc", pattern="^(asc|desc)$"),
+    group: bool = False,
+    service=Depends(get_service)
+):
 
-    return lists
+    result = service.get_lists(name, sort_order, group)
 
-
-@router.get("/filter/{name}")
-def filter_lists(name: str):
-    """
-    Filter grocery lists by list name.
-    Args:
-        name (str): Name of the grocery list.
-    Returns:
-        list: Matching lists with the specified name.
-    Raises:
-        HTTPException: If no matching lists are found.
-    """
-    lists = list(
-        metadata_collection.find(
-            {"listName": name},
-            {"_id": 0}
-        )
-    )
-
-    if not lists:
-        raise HTTPException(status_code=404, detail="No lists found")
-
-    return lists
-
-
-@router.get("/sort")
-def sort_lists():
-    """
-    Retrieve all grocery lists sorted alphabetically by list name.
-    Returns:
-        list: Sorted list of grocery lists.
-    """
-    lists = list(
-        metadata_collection.find({}, {"_id": 0})
-        .sort("listName", 1)
-    )
-
-    return lists
-
-
-@router.get("/group")
-def group_items():
-    """
-    Group items across all grocery lists and calculate total quantity per item.
-    Returns:
-        list: Aggregated result showing item names and their total quantities.
-    """
-    pipeline = [
-        {"$unwind": "$items"},
-        {
-            "$group": {
-                "_id": "$items.name",
-                "total_quantity": {"$sum": "$items.quantity"}
-            }
-        }
-    ]
-
-    result = list(grocery_collection.aggregate(pipeline))
+    if not result:
+        raise HTTPException(status_code=404, detail="No data found")
 
     return result
 
 
 @router.get("/{list_id}")
-def get_list(list_id: int):
-    """
-    Retrieve a specific grocery list along with its items.
-    Args:
-        list_id (int): ID of the grocery list.
-    Returns:
-        dict: Grocery list details including items.
-    Raises:
-        HTTPException: If the list is not found.
-    """
-    lst = grocery_collection.find_one({"listId": list_id}, {"_id": 0})
+def get_list(list_id: str, service=Depends(get_service)):
+
+    lst = service.get_list_by_id(list_id)
 
     if not lst:
         raise HTTPException(status_code=404, detail="List not found")
@@ -127,15 +50,11 @@ def get_list(list_id: int):
 
 
 @router.delete("/{list_id}")
-def delete_list(list_id: int):
-    """
-    Delete a grocery list completely.
-    Args:
-        list_id (int): ID of the grocery list to delete.
-    Returns:
-        dict: Confirmation message after deletion.
-    """
-    grocery_collection.delete_one({"listId": list_id})
-    metadata_collection.delete_one({"listId": list_id})
+def delete_list(list_id: str, service=Depends(get_service)):
 
-    return {"message": "List deleted successfully"}
+    deleted = service.delete_list(list_id)
+
+    if deleted == 0:
+        raise HTTPException(status_code=404, detail="List not found")
+
+    return {"message": "Deleted"}
